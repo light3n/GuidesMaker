@@ -6,7 +6,20 @@
 //  Copyright © 2018年 指道科技. All rights reserved.
 //
 
-// API
+/**
+ Feature：
+ - 一行代码部署一个、多个引导页面
+ - 支持一系列、具备连贯性的操作的引导（应用场景：图像编辑App中一个连贯性的编辑操作）
+ - 支持手势事件传递，为了降低 引导框架 与 需要引导的内容控制器 之间的耦合性，提供了相应的回调 API，Controller 可以通过实现 API 来获得手势回调，回调事件交由 Controller 自行管理（应用场景：在引导页面不消失的情况下，同步更新 Controller 的状态、事件）
+ - 支持自定义界面UI：操作区域、Prompt 提示语
+ - 支持语音朗读提示语
+ 
+ - 支持指定任意view（cell、barButtonItem、titleView）作为区域限定
+ - 支持常用手势演示：移动、缩放、上下左右滑动（因此，需要将 Prompt 及箭头抽离封装成一个部件）
+ - 支持关闭操作区域限定，只作为普通引导
+ */
+
+/// UI
 // operateArea 操作区域形状
 enum AreaPath {
     case rectangle
@@ -31,6 +44,8 @@ enum PromptBackground {
 
 import UIKit
 
+
+/// 配置项
 class StepData {
     var operateArea: CGRect?
     var prompt: String!
@@ -47,6 +62,8 @@ class StepData {
     }
 }
 
+
+/// 回调 API
 protocol GuidesMakerProtocol {
     
 }
@@ -69,7 +86,7 @@ class StepMaker: UIView {
         let stepData = StepData.init(operateArea: area, prompt: prompt, audioText: audioText)
         let stepMaker = StepMaker.init(stepData: stepData)
         let window = UIApplication.shared.delegate?.window
-        window??.rootViewController!.view.addSubview(stepMaker)
+        window??.addSubview(stepMaker)
     }
     
     init(stepData data: StepData!) {

@@ -19,7 +19,7 @@ class ViewController: UIViewController {
         button.setTitle("Design", for: .normal)
         button.setTitleColor(.white, for: .normal)
         button.frame = CGRect.init(x: 150, y: 200, width: 120, height: 60)
-        self.view .addSubview(button)
+        self.view.addSubview(button)
         
         StepMaker.show(withOperateArea: button.frame, prompt: "点击按钮进入图像编辑功能", audioText: nil)
         
