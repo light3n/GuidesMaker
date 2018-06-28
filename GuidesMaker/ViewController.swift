@@ -21,7 +21,9 @@ class ViewController: UIViewController {
         button.frame = CGRect.init(x: 150, y: 200, width: 120, height: 60)
         self.view.addSubview(button)
         
-        StepMaker.show(withOperateArea: button.frame, prompt: "点击按钮进入图像编辑功能", audioText: nil)
+        
+        StepMaker.show(withOperateArea: button.frame, prompt: "点击按钮进入图像编辑功能", delegate: self as GuidesMakerDelegate)
+
         
         Demo.calculate { (maker) in
             print(maker.add(5).add(2).count ?? 0)
@@ -32,8 +34,23 @@ class ViewController: UIViewController {
         super.didReceiveMemoryWarning()
         // Dispose of any resources that can be recreated.
     }
+ 
+    @IBAction func showSteper(_ sender: UIButton) {
+        StepMaker.show(withOperateArea: sender.frame, prompt: "点击按钮进入图像编辑功能", delegate: self as GuidesMakerDelegate)
+    }
+}
 
-
+extension ViewController: GuidesMakerDelegate {
+    func stepMaker(_ maker: StepMaker?, didReceivedGestureEvent gesture: UIGestureRecognizer?) {
+        if (gesture?.isKind(of: UITapGestureRecognizer.self))! {
+            print("GuidesMakerDelegate TapGesture point:\(String(describing: gesture?.location(in: nil)))")
+        } else if (gesture?.isKind(of: UIPanGestureRecognizer.self))! {
+            print("GuidesMakerDelegate PanGesture point:\(String(describing: gesture?.location(in: nil)))")
+        } else if (gesture?.isKind(of: UIPinchGestureRecognizer.self))! {
+            let pinchGes = gesture as! UIPinchGestureRecognizer
+            print("GuidesMakerDelegate PinchGesture:\(pinchGes.scale)")
+        }
+    }
 }
 
 class Demo {
@@ -49,4 +66,6 @@ class Demo {
         return self
     }
 }
+
+
 

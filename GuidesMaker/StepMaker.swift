@@ -6,6 +6,8 @@
 //  Copyright © 2018年 指道科技. All rights reserved.
 //
 
+import UIKit
+
 /**
  Feature：
  - 一行代码部署一个、多个引导页面
@@ -13,6 +15,8 @@
  - 支持手势事件传递，为了降低 引导框架 与 需要引导的内容控制器 之间的耦合性，提供了相应的回调 API，Controller 可以通过实现 API 来获得手势回调，回调事件交由 Controller 自行管理（应用场景：在引导页面不消失的情况下，同步更新 Controller 的状态、事件）
  - 支持自定义界面UI：操作区域、Prompt 提示语
  - 支持语音朗读提示语
+ 
+ - 传入某个 view 或者坐标 rect，框架自动根据 rect 识别需要响应的对象
  
  - 支持指定任意view（cell、barButtonItem、titleView）作为区域限定
  - 支持常用手势演示：移动、缩放、上下左右滑动（因此，需要将 Prompt 及箭头抽离封装成一个部件）
@@ -27,14 +31,6 @@ enum AreaPath {
     case custom(UIBezierPath)
 }
 
-// 连接 操作区域 与 提示语 的部分
-enum Pointer {
-    case line // 直线
-    case dashLine // 虚线
-    case curve // 曲线
-    case bubble // 气泡
-    case arrow // 箭头
-}
 
 // Prompt Background 提示语背景
 enum PromptBackground {
@@ -42,30 +38,32 @@ enum PromptBackground {
     case image(UIImage)
 }
 
-import UIKit
-
+/// Event
+// 实现多选 enum 的方法：
+// 1. OptionSet @link https://stackoverflow.com/questions/24066170/how-to-create-ns-options-style-bitmask-enumerations-in-swift/24066171#24066171 /@link
+// 2. 数组包装 enum -> [Type]
+enum Gesture {
+    case tap
+    case pan(targetPoint: CGPoint)
+    case pinch(targetScale: CGFloat)
+    case rotate(targetAngle: CGFloat)
+}
 
 /// 配置项
 class StepData {
     var operateArea: CGRect?
     var prompt: String!
-    var audioText: String?
     
-    init(operateArea area: CGRect? = .zero, prompt: String!, audioText: String?) {
+    init(operateArea area: CGRect? = .zero, prompt: String!) {
         self.operateArea = area
         self.prompt = prompt
-        if audioText != nil {
-            self.audioText = audioText
-        } else {
-            self.audioText = prompt
-        }
     }
 }
 
 
 /// 回调 API
-protocol GuidesMakerProtocol {
-    
+protocol GuidesMakerDelegate {
+    func stepMaker(_ maker: StepMaker?, didReceivedGestureEvent gesture: UIGestureRecognizer?) -> Void
 }
 
 class StepMaker: UIView {
@@ -82,11 +80,14 @@ class StepMaker: UIView {
     
     var currentGesture: UIGestureRecognizer?
     
-    static func show(withOperateArea area: CGRect?, prompt: String!, audioText: String?) {
-        let stepData = StepData.init(operateArea: area, prompt: prompt, audioText: audioText)
+    var delegate: GuidesMakerDelegate?
+    
+    static func show(withOperateArea area: CGRect? = CGRect.zero, prompt: String!, delegate: GuidesMakerDelegate) {
+        let stepData = StepData.init(operateArea: area, prompt: prompt)
         let stepMaker = StepMaker.init(stepData: stepData)
+        stepMaker.delegate = delegate
         let window = UIApplication.shared.delegate?.window
-        window??.addSubview(stepMaker)
+        window??.rootViewController?.view.addSubview(stepMaker)
     }
     
     init(stepData data: StepData!) {
@@ -109,11 +110,14 @@ class StepMaker: UIView {
         self.addSubview(bgView)
         self.bgView = bgView
         
-        let tapGes = UITapGestureRecognizer.init(target: self, action: #selector(StepMaker.handleTapGestureEvent))
-        self.addGestureRecognizer(tapGes)
-        
-        let pinchGes = UIPinchGestureRecognizer.init(target: self, action: #selector(StepMaker.handlePinchGestureEvent(_:)))
-        self.addGestureRecognizer(pinchGes)
+//        let tapGes = UITapGestureRecognizer.init(target: self, action: #selector(StepMaker.handleTapGestureEvent(_:)))
+//        bgView.addGestureRecognizer(tapGes)
+//
+//        let panGes = UIPanGestureRecognizer.init(target: self, action: #selector(StepMaker.handlePanGestureEvent(_:)))
+//        bgView.addGestureRecognizer(panGes)
+//
+//        let pinchGes = UIPinchGestureRecognizer.init(target: self, action: #selector(StepMaker.handlePinchGestureEvent(_:)))
+//        bgView.addGestureRecognizer(pinchGes)
         
         // prompt label
         let promptLabel = UILabel()
@@ -162,12 +166,35 @@ class StepMaker: UIView {
     
     // MARK: - Event Handler
     
-    @objc fileprivate func handleTapGestureEvent() {
+    @objc fileprivate func handleTapGestureEvent(_ gesture: UITapGestureRecognizer) {
         print("-handleTapGestureEvent(_:)")
         self.removeFromSuperview()
+        self.delegate?.stepMaker(self, didReceivedGestureEvent: gesture)
     }
-    @objc fileprivate func handlePinchGestureEvent(_ ges: UIPinchGestureRecognizer) {
-        print("-handlePinchGestureEvent(_:):\(ges.scale)")
+    @objc fileprivate func handlePanGestureEvent(_ gesture: UIPanGestureRecognizer) {
+        print("-handlePanGestureEvent(_:):\(String(describing: gesture.location(in: nil)))")
+        self.delegate?.stepMaker(self, didReceivedGestureEvent: gesture)
+        if gesture.state == .ended {
+            let rect: CGRect = CGRect.init(x: 0, y: 500, width: 100, height: 100)
+            if rect.contains(gesture.location(in: nil)) {
+                self.removeFromSuperview()
+            } else {
+                self.bgView.isHidden = false
+                self.promptLabel.isHidden = false
+            }
+        }
+    }
+    @objc fileprivate func handlePinchGestureEvent(_ gesture: UIPinchGestureRecognizer) {
+        print("-handlePinchGestureEvent(_:):\(gesture.scale)")
+        self.delegate?.stepMaker(self, didReceivedGestureEvent: gesture)
+        if gesture.state == .ended {
+            if gesture.scale > 3 {
+                self.removeFromSuperview()
+            } else {
+                self.bgView.isHidden = false
+                self.promptLabel.isHidden = false
+            }
+        }
     }
     
     override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
@@ -175,24 +202,29 @@ class StepMaker: UIView {
         guard let area = self.data.operateArea, !area.equalTo(.zero) else {
             return true
         }
+        print("-pointInside:")
         if area.contains(point) {
-            return true
-        } else {
+            
+            self.bgView.isHidden = true
+            self.promptLabel.isHidden = true
+            
             return false
+        } else {
+            return true
         }
     }
     
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         let point = touches.first?.location(in: self)
         print("touchesBegan:\(point!)")
-        self.bgView.isHidden = true
-        self.promptLabel.isHidden = true
+//        self.bgView.isHidden = true
+//        self.promptLabel.isHidden = true
         
         
     }
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
         let point = touches.first?.location(in: self)
-        print("touchesMoved:\(point!)")
+//        print("touchesMoved:\(point!)")
     }
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
         self.bgView.isHidden = false
